@@ -116,20 +116,20 @@ tab1, tab2, tab3 = st.tabs(["Summarize", "Sentiment Analysis", "Full Analysis"])
 
 # ---------- Summarize tab ----------
 with tab1:
-    if "summary_text" not in st.session_state:
-        st.session_state.summary_text = ""
+    if "summary_area" not in st.session_state:
+        st.session_state.summary_area = ""
 
     st.write("**Try a sample:**")
     cols = st.columns(3)
     for i, (name, text) in enumerate(SAMPLE_ARTICLES.items()):
         if cols[i].button(name, key=f"sample_summary_{i}"):
-            st.session_state.summary_text = text
+            st.session_state.summary_area = text
 
     uploaded = st.file_uploader("Or upload a .txt, .pdf, or .docx file", type=["txt", "pdf", "docx"], key="upload_summary")
     if uploaded is not None:
-        st.session_state.summary_text = load_uploaded_file(uploaded)
+        st.session_state.summary_area = load_uploaded_file(uploaded)
 
-    summary_input = st.text_area("Article Text", value=st.session_state.summary_text, height=200, key="summary_area")
+    summary_input = st.text_area("Article Text", height=200, key="summary_area")
     st.caption(word_and_reading_stats(summary_input))
 
     if st.button("Summarize", type="primary"):
@@ -140,14 +140,14 @@ with tab1:
 
 # ---------- Sentiment Analysis tab ----------
 with tab2:
-    if "sentiment_text" not in st.session_state:
-        st.session_state.sentiment_text = ""
+    if "sentiment_area" not in st.session_state:
+        st.session_state.sentiment_area = ""
 
     uploaded_s = st.file_uploader("Or upload a .txt, .pdf, or .docx file", type=["txt", "pdf", "docx"], key="upload_sentiment")
     if uploaded_s is not None:
-        st.session_state.sentiment_text = load_uploaded_file(uploaded_s)
+        st.session_state.sentiment_area = load_uploaded_file(uploaded_s)
 
-    sentiment_input = st.text_area("Article Text", value=st.session_state.sentiment_text, height=200, key="sentiment_area")
+    sentiment_input = st.text_area("Article Text", height=200, key="sentiment_area")
     st.caption(word_and_reading_stats(sentiment_input))
 
     if st.button("Analyze Sentiment", type="primary"):
@@ -157,14 +157,14 @@ with tab2:
 
 # ---------- Full Analysis tab ----------
 with tab3:
-    if "full_text" not in st.session_state:
-        st.session_state.full_text = ""
+    if "full_area" not in st.session_state:
+        st.session_state.full_area = ""
 
     uploaded_f = st.file_uploader("Or upload a .txt, .pdf, or .docx file", type=["txt", "pdf", "docx"], key="upload_full")
     if uploaded_f is not None:
-        st.session_state.full_text = load_uploaded_file(uploaded_f)
+        st.session_state.full_area = load_uploaded_file(uploaded_f)
 
-    full_input = st.text_area("Article Text", value=st.session_state.full_text, height=200, key="full_area")
+    full_input = st.text_area("Article Text", height=200, key="full_area")
     st.caption(word_and_reading_stats(full_input))
 
     if st.button("Run Full Analysis", type="primary"):
