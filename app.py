@@ -1,6 +1,10 @@
 import streamlit as st
 from transformers import pipeline
 import os
+import re
+import json
+import requests
+import pandas as pd
 from openrouter import OpenRouter
 from pypdf import PdfReader
 from docx import Document
@@ -29,8 +33,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Load API key from Streamlit secrets (or environment as a fallback for local runs)
+# Load API keys from Streamlit secrets (or environment as a fallback for local runs)
 OPENROUTER_API_KEY = st.secrets.get("OPENROUTER_API_KEY", os.getenv("OPENROUTER_API_KEY", ""))
+YOUTUBE_API_KEY = st.secrets.get("YOUTUBE_API_KEY", os.getenv("YOUTUBE_API_KEY", ""))
+
+# Fast, cost-effective models offered for comment sentiment + summary generation
+SENTIMENT_MODELS = {
+    "GPT-4o Mini": "openai/gpt-4o-mini",
+    "Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
+    "DeepSeek R1": "deepseek/deepseek-r1",
+}
 
 
 @st.cache_resource
@@ -102,6 +114,139 @@ def load_uploaded_file(uploaded_file):
         return "Unsupported file type."
 
 
+def extract_video_id(url):
+    """Pull the 11-character YouTube video ID out of common URL formats."""
+    if not url:
+        return None
+    patterns = [
+        r"(?:v=|/embed/|/shorts/)([0-9A-Za-z_-]{11})",
+        r"youtu\.be/([0-9A-Za-z_-]{11})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
+
+
+def fetch_youtube_comments(video_id, max_results=50):
+    """Fetch top-level comments for a video via the official YouTube Data API v3."""
+    if not YOUTUBE_API_KEY:
+        return None, "Error: YOUTUBE_API_KEY not set. Please add it to your Streamlit secrets."
+
+    comments = []
+    endpoint = "https://www.googleapis.com/youtube/v3/commentThreads"
+    page_token = None
+
+    try:
+        while len(comments) < max_results:
+            params = {
+                "part": "snippet",
+                "videoId": video_id,
+                "maxResults": min(100, max_results - len(comments)),
+                "order": "relevance",
+                "textFormat": "plainText",
+                "key": YOUTUBE_API_KEY,
+            }
+            if page_token:
+                params["pageToken"] = page_token
+
+            response = requests.get(endpoint, params=params, timeout=15)
+            if response.status_code == 403:
+                return None, "Error: Comments are disabled for this video, or the API key lacks permission."
+            response.raise_for_status()
+            data = response.json()
+
+            for item in data.get("items", []):
+                snippet = item["snippet"]["topLevelComment"]["snippet"]
+                comments.append({
+                    "author": snippet.get("authorDisplayName", "Unknown"),
+                    "text": snippet.get("textDisplay", ""),
+                    "likes": snippet.get("likeCount", 0),
+                    "published_at": snippet.get("publishedAt", ""),
+                })
+
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+    except requests.exceptions.RequestException as e:
+        return None, f"Error fetching comments: {e}"
+
+    return comments, None
+
+
+def classify_comments_sentiment(comments, model, batch_size=25):
+    """Classify each comment as Positive/Negative/Neutral using an OpenRouter LLM, in batches."""
+    if not comments:
+        return comments
+    if not OPENROUTER_API_KEY:
+        for c in comments:
+            c["sentiment"] = "Unknown"
+        return comments
+
+    system_prompt = (
+        "You are a sentiment classification engine. For each numbered comment, classify it as "
+        "exactly one of: Positive, Negative, or Neutral. Respond ONLY with a JSON array of objects "
+        'like [{"index": 0, "sentiment": "Positive"}] and nothing else - no markdown, no preamble.'
+    )
+
+    with OpenRouter(api_key=OPENROUTER_API_KEY) as client:
+        for start in range(0, len(comments), batch_size):
+            batch = comments[start:start + batch_size]
+            numbered = "\n".join(f"{i}. {c['text'][:500]}" for i, c in enumerate(batch))
+
+            try:
+                response = client.chat.send(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": numbered},
+                    ],
+                    stream=False,
+                )
+                raw = response.choices[0].message.content.strip()
+                raw = raw.replace("```json", "").replace("```", "").strip()
+                results = json.loads(raw)
+                sentiment_map = {r["index"]: r["sentiment"] for r in results}
+            except (json.JSONDecodeError, KeyError, TypeError, IndexError, AttributeError):
+                sentiment_map = {}
+
+            for i, c in enumerate(batch):
+                c["sentiment"] = sentiment_map.get(i, "Neutral")
+
+    return comments
+
+
+def generate_executive_summary(comments, model):
+    """Generate an AI executive summary of audience feedback: overview, praise, and pain points."""
+    if not comments:
+        return "No comments to summarize."
+    if not OPENROUTER_API_KEY:
+        return "Error: OPENROUTER_API_KEY not set. Please add it to your Streamlit secrets."
+
+    sentiment_counts = pd.Series([c.get("sentiment", "Unknown") for c in comments]).value_counts().to_dict()
+    sample = "\n".join(f"- [{c.get('sentiment', 'Unknown')}] {c['text'][:200]}" for c in comments[:60])
+
+    system_prompt = (
+        "You are a business analyst summarizing YouTube audience feedback for an executive audience. "
+        "Given a set of comments with sentiment labels, write a concise executive summary with three "
+        "sections using markdown headers: '### Overview' (2-3 sentences), '### Main Praise' (bullet "
+        "points), and '### Major Complaints / Pain Points' (bullet points). Be specific and actionable."
+    )
+    user_prompt = f"Sentiment breakdown: {sentiment_counts}\n\nComments:\n{sample}"
+
+    with OpenRouter(api_key=OPENROUTER_API_KEY) as client:
+        response = client.chat.send(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            stream=False,
+        )
+    return response.choices[0].message.content
+
+
 SAMPLE_ARTICLES = {
     "Sample: AI in Industry": """Artificial intelligence is transforming industries worldwide. From healthcare to finance, organizations are deploying machine learning models to automate tasks, improve decision-making, and uncover insights from vast datasets. In healthcare, AI systems can now detect certain cancers from medical images with accuracy rivaling experienced radiologists. Financial institutions use AI to detect fraud in real time, saving billions of dollars annually. The transportation sector is being reshaped by autonomous vehicles that rely on deep learning to navigate complex environments. Meanwhile, natural language processing breakthroughs have enabled virtual assistants and translation tools that were unimaginable a decade ago. Despite these advances, challenges remain around data privacy, algorithmic bias, and the displacement of workers in certain sectors. Policymakers, researchers, and industry leaders are working to establish frameworks that ensure AI development proceeds responsibly and equitably.""",
     "Sample: Community News": """The local community center celebrated its 20th anniversary this weekend with a series of events that brought together hundreds of residents. Organizers praised the turnout, noting that the center has become a vital hub for youth programs, elder support services, and cultural celebrations over the past two decades. Volunteers set up food stalls, live music, and children's activities throughout the day. Several long-time members shared stories about how the center helped them through difficult times, from job loss to family struggles. City officials attended the event and announced a new grant that will fund an expansion of the center's after-school tutoring program next year.""",
@@ -112,7 +257,7 @@ SAMPLE_ARTICLES = {
 st.title("Article Analyzer")
 st.write("Paste any article to get AI-powered sentiment analysis and summarization.")
 
-tab1, tab2, tab3 = st.tabs(["Summarize", "Sentiment Analysis", "Full Analysis"])
+tab1, tab2, tab3, tab4 = st.tabs(["Summarize", "Sentiment Analysis", "Full Analysis", "YouTube Insights"])
 
 # ---------- Summarize tab ----------
 with tab1:
@@ -179,6 +324,74 @@ with tab3:
 
         combined = f"--- SENTIMENT ---\n{sentiment_result}\n\n--- SUMMARY ---\n{summary_result}"
         st.download_button("Download Full Results", data=combined, file_name="full_analysis_result.txt")
+
+# ---------- YouTube Insights tab ----------
+with tab4:
+    st.write("Paste a YouTube video link to pull public comments and analyze audience sentiment.")
+
+    yt_url = st.text_input("YouTube Video URL", placeholder="https://www.youtube.com/watch?v=...", key="yt_url")
+
+    col_a, col_b = st.columns([2, 1])
+    with col_a:
+        model_choice = st.selectbox("Sentiment / Summary Model", list(SENTIMENT_MODELS.keys()), key="yt_model")
+    with col_b:
+        max_comments = st.slider("Max comments", 10, 100, 50, step=10, key="yt_max")
+
+    if st.button("Analyze YouTube Comments", type="primary"):
+        video_id = extract_video_id(yt_url)
+        if not video_id:
+            st.error("Couldn't find a valid YouTube video ID in that link.")
+        else:
+            with st.spinner("Fetching comments from YouTube..."):
+                comments, error = fetch_youtube_comments(video_id, max_results=max_comments)
+
+            if error:
+                st.error(error)
+            elif not comments:
+                st.warning("No comments found for this video — they may be disabled.")
+            else:
+                model_id = SENTIMENT_MODELS[model_choice]
+                with st.spinner("Classifying comment sentiment..."):
+                    comments = classify_comments_sentiment(comments, model_id)
+                with st.spinner("Generating executive summary..."):
+                    summary = generate_executive_summary(comments, model_id)
+
+                st.session_state.yt_comments = comments
+                st.session_state.yt_summary = summary
+
+    if st.session_state.get("yt_comments"):
+        comments = st.session_state.yt_comments
+        df = pd.DataFrame(comments)
+
+        st.subheader("Executive Summary")
+        st.markdown(st.session_state.yt_summary)
+
+        st.subheader("Sentiment Breakdown")
+        counts = df["sentiment"].value_counts()
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Positive", int(counts.get("Positive", 0)))
+        c2.metric("Neutral", int(counts.get("Neutral", 0)))
+        c3.metric("Negative", int(counts.get("Negative", 0)))
+
+        st.subheader("Comments")
+        sentiment_filter = st.multiselect(
+            "Filter by sentiment",
+            ["Positive", "Neutral", "Negative"],
+            default=["Positive", "Neutral", "Negative"],
+            key="yt_filter",
+        )
+        filtered = df[df["sentiment"].isin(sentiment_filter)].sort_values("likes", ascending=False)
+
+        st.dataframe(
+            filtered[["author", "text", "likes", "sentiment"]].rename(
+                columns={"author": "Author", "text": "Comment", "likes": "Likes", "sentiment": "Sentiment"}
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        csv = filtered.to_csv(index=False)
+        st.download_button("Download Comments CSV", data=csv, file_name="youtube_comments_analysis.csv")
 
 st.markdown("---")
 st.caption("Built with Hugging Face Transformers, OpenRouter, and Streamlit")

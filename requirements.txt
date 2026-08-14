@@ -4,3 +4,5 @@ torch
 openrouter
 pypdf
 python-docx
+pandas
+requests
