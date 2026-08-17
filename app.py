@@ -513,4 +513,4 @@ with tab4:
         st.download_button("Download Comments CSV", data=csv, file_name="youtube_comments_analysis.csv")
 
 st.markdown("---")
-st.caption("Built with Hugging Face Transformers, OpenRouter, and Streamlit")
+st.caption("Built with Streamlit, OpenRouter, and the YouTube Data API")
