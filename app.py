@@ -4,6 +4,7 @@ import re
 import json
 import requests
 import pandas as pd
+import plotly.express as px
 from openrouter import OpenRouter
 from pypdf import PdfReader
 from docx import Document
@@ -491,6 +492,41 @@ with tab4:
         c1.metric("Positive", int(counts.get("Positive", 0)))
         c2.metric("Neutral", int(counts.get("Neutral", 0)))
         c3.metric("Negative", int(counts.get("Negative", 0)))
+
+        SENTIMENT_COLORS = {"Positive": "#2e7d32", "Neutral": "#757575", "Negative": "#c62828"}
+
+        chart_col1, chart_col2 = st.columns(2)
+
+        with chart_col1:
+            pie_df = counts.reindex(["Positive", "Neutral", "Negative"]).fillna(0).reset_index()
+            pie_df.columns = ["Sentiment", "Count"]
+            pie_df = pie_df[pie_df["Count"] > 0]
+            if not pie_df.empty:
+                fig_pie = px.pie(
+                    pie_df, names="Sentiment", values="Count",
+                    color="Sentiment", color_discrete_map=SENTIMENT_COLORS, hole=0.45,
+                )
+                fig_pie.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300, showlegend=True)
+                st.plotly_chart(fig_pie, use_container_width=True)
+
+        with chart_col2:
+            timeline_df = df.copy()
+            timeline_df["published_at"] = pd.to_datetime(timeline_df["published_at"], errors="coerce")
+            timeline_df = timeline_df.dropna(subset=["published_at"])
+            if not timeline_df.empty and timeline_df["published_at"].dt.date.nunique() > 1:
+                timeline_df["date"] = timeline_df["published_at"].dt.date
+                trend = timeline_df.groupby(["date", "sentiment"]).size().reset_index(name="count")
+                fig_line = px.line(
+                    trend, x="date", y="count", color="sentiment",
+                    color_discrete_map=SENTIMENT_COLORS, markers=True,
+                )
+                fig_line.update_layout(
+                    margin=dict(t=10, b=10, l=10, r=10), height=300,
+                    xaxis_title="", yaxis_title="Comments", legend_title="",
+                )
+                st.plotly_chart(fig_line, use_container_width=True)
+            else:
+                st.caption("Not enough date spread in these comments to show a trend line.")
 
         st.subheader("Comments")
         sentiment_filter = st.multiselect(
