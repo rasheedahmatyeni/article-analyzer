@@ -1,5 +1,4 @@
 import streamlit as st
-from transformers import pipeline
 import os
 import re
 import json
@@ -45,21 +44,50 @@ SENTIMENT_MODELS = {
 }
 
 
-@st.cache_resource
-def load_sentiment_model():
-    return pipeline("sentiment-analysis")
-
-
-sentiment_analyzer = load_sentiment_model()
+# Shared guidance used by every sentiment classifier in the app. The key fix here: emotional tone
+# (sadness, nostalgia, crying) is NOT the same as negative sentiment. A comment can be sad AND
+# supportive - that's Positive. Negative is reserved for actual criticism, complaints, or hostility
+# toward the subject.
+SENTIMENT_GUIDANCE = (
+    "Classify SENTIMENT - the writer's underlying stance or opinion toward the subject - not just the "
+    "emotional tone of their words. Sadness, grief, nostalgia, tears, or missing someone are NOT "
+    "automatically Negative. If the writer is sad but still supportive, loving, proud, or hopeful, that "
+    "is Positive. Reserve Negative for actual criticism, complaints, disappointment with the content "
+    "itself, or hostility toward the subject. Use Neutral for purely factual statements or genuinely "
+    "mixed reactions with no clear lean.\n\n"
+    "Examples:\n"
+    "- \"I'll miss him so much, fighting Hobi! We'll wait for you\" -> Positive (sad but supportive)\n"
+    "- \"Seeing him cry broke my heart, love you J-Hope\" -> Positive (emotional but affectionate)\n"
+    "- \"This video was boring and way too long\" -> Negative (actual criticism)\n"
+    "- \"He enlists next month\" -> Neutral (factual, no clear stance)\n"
+    "- \"I don't like how they edited this, feels rushed\" -> Negative (criticism of the content)"
+)
 
 
 def analyze_sentiment(text):
+    """Classify article-level sentiment via an LLM, using the same tone-vs-stance guidance as comments."""
     if not text.strip():
         return "Please enter some text to analyze."
-    result = sentiment_analyzer(text[:512])[0]
-    label = result["label"]
-    score = result["score"]
-    return f"Sentiment: {label}\nConfidence: {score:.2%}"
+    if not OPENROUTER_API_KEY:
+        return "Error: OPENROUTER_API_KEY not set. Please add it to your Streamlit secrets."
+
+    system_prompt = (
+        "You are a sentiment classification engine for article text. " + SENTIMENT_GUIDANCE +
+        "\n\nRespond in exactly this format and nothing else:\n"
+        "Sentiment: <Positive/Negative/Neutral>\n"
+        "Reason: <one short sentence explaining the stance, not just the tone>"
+    )
+
+    with OpenRouter(api_key=OPENROUTER_API_KEY) as client:
+        response = client.chat.send(
+            model="openai/gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": text[:3000]},
+            ],
+            stream=False,
+        )
+    return response.choices[0].message.content.strip()
 
 
 def summarize_with_llm(text):
@@ -185,9 +213,10 @@ def classify_comments_sentiment(comments, model, batch_size=25):
         return comments
 
     system_prompt = (
-        "You are a sentiment classification engine. For each numbered comment, classify it as "
-        "exactly one of: Positive, Negative, or Neutral. Respond ONLY with a JSON array of objects "
-        'like [{"index": 0, "sentiment": "Positive"}] and nothing else - no markdown, no preamble.'
+        "You are a sentiment classification engine for YouTube comments. For each numbered comment, "
+        "classify it as exactly one of: Positive, Negative, or Neutral.\n\n" + SENTIMENT_GUIDANCE +
+        '\n\nRespond ONLY with a JSON array of objects like [{"index": 0, "sentiment": "Positive"}] '
+        "and nothing else - no markdown, no preamble."
     )
 
     with OpenRouter(api_key=OPENROUTER_API_KEY) as client:
