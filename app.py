@@ -342,7 +342,16 @@ with tab1:
     summary_input = st.text_area("Article Text", height=200, key="summary_area")
     st.caption(word_and_reading_stats(summary_input))
 
-    if st.button("Summarize", type="primary"):
+    def clear_summary_tab():
+        st.session_state.summary_area = ""
+
+    col_run, col_clear = st.columns([1, 1])
+    with col_run:
+        run_summarize = st.button("Summarize", type="primary")
+    with col_clear:
+        st.button("Clear", key="clear_summary", on_click=clear_summary_tab)
+
+    if run_summarize:
         with st.spinner("Summarizing..."):
             result = summarize_with_llm(summary_input)
         st.text_area("Summary", value=result, height=150)
@@ -360,7 +369,16 @@ with tab2:
     sentiment_input = st.text_area("Article Text", height=200, key="sentiment_area")
     st.caption(word_and_reading_stats(sentiment_input))
 
-    if st.button("Analyze Sentiment", type="primary"):
+    def clear_sentiment_tab():
+        st.session_state.sentiment_area = ""
+
+    col_run, col_clear = st.columns([1, 1])
+    with col_run:
+        run_sentiment = st.button("Analyze Sentiment", type="primary")
+    with col_clear:
+        st.button("Clear", key="clear_sentiment", on_click=clear_sentiment_tab)
+
+    if run_sentiment:
         with st.spinner("Analyzing..."):
             result = analyze_sentiment(sentiment_input)
         if result["sensitive"]:
@@ -384,7 +402,16 @@ with tab3:
     full_input = st.text_area("Article Text", height=200, key="full_area")
     st.caption(word_and_reading_stats(full_input))
 
-    if st.button("Run Full Analysis", type="primary"):
+    def clear_full_tab():
+        st.session_state.full_area = ""
+
+    col_run, col_clear = st.columns([1, 1])
+    with col_run:
+        run_full = st.button("Run Full Analysis", type="primary")
+    with col_clear:
+        st.button("Clear", key="clear_full", on_click=clear_full_tab)
+
+    if run_full:
         with st.spinner("Running full analysis..."):
             sentiment_result, summary_result = full_analysis(full_input)
 
@@ -418,7 +445,18 @@ with tab4:
     with col_b:
         max_comments = st.slider("Max comments", 10, 100, 50, step=10, key="yt_max")
 
-    if st.button("Analyze YouTube Comments", type="primary"):
+    def clear_youtube_tab():
+        st.session_state.yt_url = ""
+        st.session_state.pop("yt_comments", None)
+        st.session_state.pop("yt_summary", None)
+
+    col_run, col_clear = st.columns([1, 1])
+    with col_run:
+        run_youtube = st.button("Analyze YouTube Comments", type="primary")
+    with col_clear:
+        st.button("Clear", key="clear_youtube", on_click=clear_youtube_tab)
+
+    if run_youtube:
         video_id = extract_video_id(yt_url)
         if not video_id:
             st.error("Couldn't find a valid YouTube video ID in that link.")
