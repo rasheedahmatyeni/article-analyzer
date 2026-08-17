@@ -11,27 +11,80 @@ from docx import Document
 
 st.set_page_config(page_title="Article Analyzer", page_icon="📰", layout="centered")
 
-# Soft blue and white styling
-st.markdown("""
+# Color tokens. Indigo is the primary "pop" accent (buttons, tabs, headings); amber is the
+# secondary highlight (used sparingly). Sentiment colors stay separate and meaningful - they're
+# reused consistently across metric cards, badges, and the charts on the YouTube tab.
+INDIGO = "#6C4FF6"
+INDIGO_DARK = "#5636D9"
+AMBER = "#FFB020"
+INK = "#1B1E2B"
+SENTIMENT_COLORS = {"Positive": "#2E7D32", "Neutral": "#5A5D6B", "Negative": "#C62828"}
+SENTIMENT_TINTS = {"Positive": "#E8F5E9", "Neutral": "#EEEEF2", "Negative": "#FDECEA"}
+
+st.markdown(f"""
     <style>
-    .stApp { background-color: white; }
-    .stButton>button {
-        background-color: #4a6fa5;
+    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap');
+
+    .stApp {{ background-color: #FAFAFF; }}
+
+    h1, h2, h3, .stTabs [data-baseweb="tab"] p {{
+        font-family: 'Sora', sans-serif !important;
+        color: {INK};
+    }}
+    h1 {{ font-weight: 800 !important; }}
+    h2, h3 {{ font-weight: 700 !important; }}
+
+    /* Signature gradient bar across the top of the app */
+    .accent-bar {{
+        height: 6px;
+        width: 100%;
+        border-radius: 6px;
+        background: linear-gradient(90deg, {INDIGO} 0%, {AMBER} 100%);
+        margin-bottom: 1.4rem;
+    }}
+
+    .stButton>button, .stDownloadButton>button {{
+        background: linear-gradient(90deg, {INDIGO} 0%, {INDIGO_DARK} 100%);
         color: white;
-        border-radius: 8px;
+        border-radius: 10px;
         border: none;
-    }
-    .stButton>button:hover {
-        background-color: #3d5c8a;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(108, 79, 246, 0.25);
+    }}
+    .stButton>button:hover, .stDownloadButton>button:hover {{
+        background: linear-gradient(90deg, {INDIGO_DARK} 0%, {INDIGO_DARK} 100%);
         color: white;
-    }
-    div[data-testid="stMetric"] {
-        background-color: #f0f5fa;
+        box-shadow: 0 4px 12px rgba(108, 79, 246, 0.35);
+    }}
+
+    div[data-testid="stMetric"] {{
+        background-color: #F1EEFE;
         padding: 10px;
-        border-radius: 8px;
-    }
+        border-radius: 10px;
+        border-left: 4px solid {INDIGO};
+    }}
+
+    /* Tabs: indigo underline + label on the active tab */
+    .stTabs [data-baseweb="tab-list"] {{ gap: 4px; }}
+    .stTabs [aria-selected="true"] {{
+        color: {INDIGO} !important;
+        border-bottom-color: {INDIGO} !important;
+    }}
+    .stTabs [data-baseweb="tab-highlight"] {{ background-color: {INDIGO} !important; }}
+
+    .sentiment-badge {{
+        display: inline-block;
+        padding: 4px 14px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-family: 'Sora', sans-serif;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }}
     </style>
 """, unsafe_allow_html=True)
+
+st.markdown('<div class="accent-bar"></div>', unsafe_allow_html=True)
 
 # Load API keys from Streamlit secrets (or environment as a fallback for local runs)
 OPENROUTER_API_KEY = st.secrets.get("OPENROUTER_API_KEY", os.getenv("OPENROUTER_API_KEY", ""))
@@ -43,6 +96,7 @@ SENTIMENT_MODELS = {
     "Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
     "DeepSeek R1": "deepseek/deepseek-r1",
 }
+
 
 
 # Shared guidance used by every sentiment classifier in the app. The key fix here: emotional tone
@@ -87,6 +141,17 @@ SENTIMENT_GUIDANCE = (
     "- \"3:03 embarrassing everyone ❌ getting embarrassed by everyone ✅\" -> Neutral (a factual "
     "correction using emoji as right/wrong markers, not an expression of sentiment)"
 )
+
+
+def sentiment_badge_html(label):
+    """A small colored pill for a sentiment label, falling back to gray for unknown/error states."""
+    color = SENTIMENT_COLORS.get(label, "#5A5D6B")
+    tint = SENTIMENT_TINTS.get(label, "#EEEEF2")
+    text = label if label else "N/A"
+    return (
+        f'<span class="sentiment-badge" style="background-color:{tint}; color:{color};">'
+        f"{text}</span>"
+    )
 
 
 def analyze_sentiment(text):
@@ -401,6 +466,7 @@ with tab2:
                 "a judgment on the subject matter itself."
             )
         display_text = f"Sentiment: {result['sentiment']}\nReason: {result['reason']}"
+        st.markdown(sentiment_badge_html(result["sentiment"]), unsafe_allow_html=True)
         st.text_area("Sentiment Result", value=display_text, height=80)
 
 # ---------- Full Analysis tab ----------
@@ -439,6 +505,7 @@ with tab3:
 
         col1, col2 = st.columns(2)
         with col1:
+            st.markdown(sentiment_badge_html(sentiment_result["sentiment"]), unsafe_allow_html=True)
             st.text_area("Sentiment", value=sentiment_display, height=150)
         with col2:
             st.text_area("Summary", value=summary_result, height=150)
@@ -500,12 +567,25 @@ with tab4:
 
         st.subheader("Sentiment Breakdown")
         counts = df["sentiment"].value_counts()
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Positive", int(counts.get("Positive", 0)))
-        c2.metric("Neutral", int(counts.get("Neutral", 0)))
-        c3.metric("Negative", int(counts.get("Negative", 0)))
 
-        SENTIMENT_COLORS = {"Positive": "#2e7d32", "Neutral": "#757575", "Negative": "#c62828"}
+        def sentiment_card(label, value):
+            color = SENTIMENT_COLORS[label]
+            tint = SENTIMENT_TINTS[label]
+            return f"""
+                <div style="background-color:{tint}; border-left:4px solid {color};
+                            border-radius:10px; padding:14px 16px;">
+                    <div style="color:{color}; font-weight:700; font-size:0.85rem;
+                                text-transform:uppercase; letter-spacing:0.03em;">{label}</div>
+                    <div style="color:{INK}; font-size:1.8rem; font-weight:800;
+                                font-family:'Sora', sans-serif;">{value}</div>
+                </div>
+            """
+
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(sentiment_card("Positive", int(counts.get("Positive", 0))), unsafe_allow_html=True)
+        c2.markdown(sentiment_card("Neutral", int(counts.get("Neutral", 0))), unsafe_allow_html=True)
+        c3.markdown(sentiment_card("Negative", int(counts.get("Negative", 0))), unsafe_allow_html=True)
+        st.write("")
 
         chart_col1, chart_col2 = st.columns(2)
 
