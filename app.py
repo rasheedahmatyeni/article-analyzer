@@ -45,21 +45,33 @@ SENTIMENT_MODELS = {
 
 
 # Shared guidance used by every sentiment classifier in the app. The key fix here: emotional tone
-# (sadness, nostalgia, crying) is NOT the same as negative sentiment. A comment can be sad AND
-# supportive - that's Positive. Negative is reserved for actual criticism, complaints, or hostility
-# toward the subject.
+# (sadness, nostalgia, crying) is NOT the same as negative sentiment - a comment can be sad AND
+# supportive, which is Positive. But this cuts both ways: don't default everything with warmth or
+# fandom language to Positive either. Real criticism, complaints, and requests framed politely are
+# still Negative, and plain factual or ambiguous comments are still Neutral.
 SENTIMENT_GUIDANCE = (
     "Classify SENTIMENT - the writer's underlying stance or opinion toward the subject - not just the "
-    "emotional tone of their words. Sadness, grief, nostalgia, tears, or missing someone are NOT "
-    "automatically Negative. If the writer is sad but still supportive, loving, proud, or hopeful, that "
-    "is Positive. Reserve Negative for actual criticism, complaints, disappointment with the content "
-    "itself, or hostility toward the subject. Use Neutral for purely factual statements or genuinely "
-    "mixed reactions with no clear lean.\n\n"
+    "emotional tone of their words. Apply this in BOTH directions:\n\n"
+    "1) Sadness, grief, nostalgia, tears, or missing someone are NOT automatically Negative. If the "
+    "writer is sad but still supportive, loving, proud, or hopeful, that is Positive.\n"
+    "2) But do not default everything emotional or fan-toned to Positive either. A comment can be "
+    "polite, warm, or use affectionate language and still be Negative if it expresses a complaint, "
+    "criticism, unmet expectation, or a request for something to be fixed/improved. Look for the "
+    "actual grievance underneath the tone.\n"
+    "3) Use Neutral for purely factual statements, questions, or comments with no discernible praise "
+    "or complaint either way. Not every comment has to be Positive - a realistic set of comments on "
+    "any video should include some Neutral and some Negative ones. Do not force a Positive label just "
+    "because the video's topic is emotional.\n\n"
     "Examples:\n"
     "- \"I'll miss him so much, fighting Hobi! We'll wait for you\" -> Positive (sad but supportive)\n"
     "- \"Seeing him cry broke my heart, love you J-Hope\" -> Positive (emotional but affectionate)\n"
-    "- \"This video was boring and way too long\" -> Negative (actual criticism)\n"
+    "- \"This video was boring and way too long\" -> Negative (direct criticism)\n"
+    "- \"Please add English subtitles next time, hard to follow without them\" -> Negative (a "
+    "complaint/request, even though it's polite)\n"
+    "- \"This was too much to watch, I wish they'd shown something lighter instead\" -> Negative "
+    "(criticism of content choice, despite emotional framing)\n"
     "- \"He enlists next month\" -> Neutral (factual, no clear stance)\n"
+    "- \"What song is playing in the background?\" -> Neutral (a question, no stance)\n"
     "- \"I don't like how they edited this, feels rushed\" -> Negative (criticism of the content)"
 )
 
