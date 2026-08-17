@@ -77,16 +77,29 @@ SENTIMENT_GUIDANCE = (
 
 
 def analyze_sentiment(text):
-    """Classify article-level sentiment via an LLM, using the same tone-vs-stance guidance as comments."""
+    """Classify article-level sentiment via an LLM, using the same tone-vs-stance guidance as comments.
+
+    Returns a dict: {"sentiment": str, "reason": str, "sensitive": bool}. When "sensitive" is True,
+    the sentiment label describes the writing's tone/stance only - never an endorsement of the topic
+    itself (e.g. a well-written academic paper on assault can be "Positive" in tone while the subject
+    matter remains serious; that distinction needs to be visible, not buried in a reasoning sentence).
+    """
     if not text.strip():
-        return "Please enter some text to analyze."
+        return {"sentiment": "", "reason": "Please enter some text to analyze.", "sensitive": False}
     if not OPENROUTER_API_KEY:
-        return "Error: OPENROUTER_API_KEY not set. Please add it to your Streamlit secrets."
+        return {"sentiment": "", "reason": "Error: OPENROUTER_API_KEY not set. Please add it to your Streamlit secrets.", "sensitive": False}
 
     system_prompt = (
         "You are a sentiment classification engine for article text. " + SENTIMENT_GUIDANCE +
-        "\n\nRespond in exactly this format and nothing else:\n"
+        "\n\nAlso flag SENSITIVE TOPICS. If the subject matter involves violence, abuse, assault, "
+        "trauma, death, self-harm, or other serious/distressing subject matter - regardless of how "
+        "constructive, academic, or measured the writing's tone is - mark it as sensitive. A "
+        "Positive/Negative label on such content always describes the writing's tone or stance only, "
+        "never an endorsement of the topic, and this needs to be flagged explicitly rather than left "
+        "implicit.\n\n"
+        "Respond in exactly this format and nothing else:\n"
         "Sentiment: <Positive/Negative/Neutral>\n"
+        "Sensitive: <Yes/No>\n"
         "Reason: <one short sentence explaining the stance, not just the tone>"
     )
 
@@ -99,7 +112,18 @@ def analyze_sentiment(text):
             ],
             stream=False,
         )
-    return response.choices[0].message.content.strip()
+    raw = response.choices[0].message.content.strip()
+
+    sentiment, sensitive, reason = "Unknown", False, raw
+    for line in raw.splitlines():
+        if line.lower().startswith("sentiment:"):
+            sentiment = line.split(":", 1)[1].strip()
+        elif line.lower().startswith("sensitive:"):
+            sensitive = line.split(":", 1)[1].strip().lower().startswith("y")
+        elif line.lower().startswith("reason:"):
+            reason = line.split(":", 1)[1].strip()
+
+    return {"sentiment": sentiment, "reason": reason, "sensitive": sensitive}
 
 
 def summarize_with_llm(text):
@@ -125,7 +149,7 @@ def summarize_with_llm(text):
 
 def full_analysis(text):
     if not text.strip():
-        return "Please enter some text to analyze.", ""
+        return {"sentiment": "", "reason": "Please enter some text to analyze.", "sensitive": False}, ""
     return analyze_sentiment(text), summarize_with_llm(text)
 
 
@@ -339,7 +363,14 @@ with tab2:
     if st.button("Analyze Sentiment", type="primary"):
         with st.spinner("Analyzing..."):
             result = analyze_sentiment(sentiment_input)
-        st.text_area("Sentiment Result", value=result, height=80)
+        if result["sensitive"]:
+            st.warning(
+                "This text touches on a sensitive topic (violence, abuse, trauma, or similar). "
+                "The sentiment label below reflects the tone/stance of the writing only - it is not "
+                "a judgment on the subject matter itself."
+            )
+        display_text = f"Sentiment: {result['sentiment']}\nReason: {result['reason']}"
+        st.text_area("Sentiment Result", value=display_text, height=80)
 
 # ---------- Full Analysis tab ----------
 with tab3:
@@ -357,13 +388,22 @@ with tab3:
         with st.spinner("Running full analysis..."):
             sentiment_result, summary_result = full_analysis(full_input)
 
+        if sentiment_result.get("sensitive"):
+            st.warning(
+                "This text touches on a sensitive topic (violence, abuse, trauma, or similar). "
+                "The sentiment label reflects the tone/stance of the writing only - it is not a "
+                "judgment on the subject matter itself."
+            )
+
+        sentiment_display = f"Sentiment: {sentiment_result['sentiment']}\nReason: {sentiment_result['reason']}"
+
         col1, col2 = st.columns(2)
         with col1:
-            st.text_area("Sentiment", value=sentiment_result, height=150)
+            st.text_area("Sentiment", value=sentiment_display, height=150)
         with col2:
             st.text_area("Summary", value=summary_result, height=150)
 
-        combined = f"--- SENTIMENT ---\n{sentiment_result}\n\n--- SUMMARY ---\n{summary_result}"
+        combined = f"--- SENTIMENT ---\n{sentiment_display}\n\n--- SUMMARY ---\n{summary_result}"
         st.download_button("Download Full Results", data=combined, file_name="full_analysis_result.txt")
 
 # ---------- YouTube Insights tab ----------
