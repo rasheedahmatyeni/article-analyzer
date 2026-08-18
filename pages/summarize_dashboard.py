@@ -1,7 +1,7 @@
 import streamlit as st
 from shared import (
-    inject_global_styles, accent_bar, dashboard_intro,
-    summarize_with_llm, word_and_reading_stats, load_uploaded_file, SAMPLE_ARTICLES,
+    inject_global_styles, accent_bar, dashboard_intro, stat_pill_html, INDIGO, AMBER,
+    summarize_with_llm, word_reading_counts, load_uploaded_file, SAMPLE_ARTICLES,
 )
 
 inject_global_styles()
@@ -27,7 +27,12 @@ if uploaded is not None:
     st.session_state.summary_area = load_uploaded_file(uploaded)
 
 summary_input = st.text_area("Article Text", height=220, key="summary_area")
-st.caption(word_and_reading_stats(summary_input))
+
+word_count, reading_minutes = word_reading_counts(summary_input)
+p1, p2 = st.columns(2)
+p1.markdown(stat_pill_html("Word Count", word_count, INDIGO, "#F1EEFE", "📄"), unsafe_allow_html=True)
+p2.markdown(stat_pill_html("Reading Time", f"{reading_minutes} min", AMBER, "#FFF3E0", "⏱"), unsafe_allow_html=True)
+st.write("")
 
 
 def clear_summary_tab():
@@ -43,5 +48,12 @@ with col_clear:
 if run_summarize:
     with st.spinner("Summarizing..."):
         result = summarize_with_llm(summary_input)
-    st.text_area("Summary", value=result, height=150)
-    st.download_button("Download Summary", data=result, file_name="summary_result.txt")
+
+    if result.startswith(("Error", "Please enter")):
+        st.error(result)
+    else:
+        st.success("Summary generated successfully.")
+        with st.container(border=True):
+            st.markdown("**Summary**")
+            st.text_area("Summary", value=result, height=150, label_visibility="collapsed")
+        st.download_button("Download Summary", data=result, file_name="summary_result.txt")

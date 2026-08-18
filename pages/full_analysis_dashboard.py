@@ -1,7 +1,8 @@
 import streamlit as st
 from shared import (
     inject_global_styles, accent_bar, dashboard_intro, sentiment_badge_html,
-    full_analysis, word_and_reading_stats, load_uploaded_file,
+    stat_pill_html, INDIGO, AMBER,
+    full_analysis, word_reading_counts, load_uploaded_file,
 )
 
 inject_global_styles()
@@ -22,7 +23,12 @@ if uploaded_f is not None:
     st.session_state.full_area = load_uploaded_file(uploaded_f)
 
 full_input = st.text_area("Article Text", height=220, key="full_area")
-st.caption(word_and_reading_stats(full_input))
+
+word_count, reading_minutes = word_reading_counts(full_input)
+p1, p2 = st.columns(2)
+p1.markdown(stat_pill_html("Word Count", word_count, INDIGO, "#F1EEFE", "📄"), unsafe_allow_html=True)
+p2.markdown(stat_pill_html("Reading Time", f"{reading_minutes} min", AMBER, "#FFF3E0", "⏱"), unsafe_allow_html=True)
+st.write("")
 
 
 def clear_full_tab():
@@ -39,21 +45,29 @@ if run_full:
     with st.spinner("Running full analysis..."):
         sentiment_result, summary_result = full_analysis(full_input)
 
-    if sentiment_result.get("sensitive"):
-        st.warning(
-            "This text touches on a sensitive topic (violence, abuse, trauma, or similar). "
-            "The sentiment label reflects the tone/stance of the writing only - it is not a "
-            "judgment on the subject matter itself."
-        )
+    if not sentiment_result.get("sentiment"):
+        st.error(sentiment_result.get("reason", "Something went wrong."))
+    else:
+        st.success("Full analysis complete.")
 
-    sentiment_display = f"Sentiment: {sentiment_result['sentiment']}\nReason: {sentiment_result['reason']}"
+        if sentiment_result.get("sensitive"):
+            st.warning(
+                "This text touches on a sensitive topic (violence, abuse, trauma, or similar). "
+                "The sentiment label reflects the tone/stance of the writing only - it is not a "
+                "judgment on the subject matter itself."
+            )
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(sentiment_badge_html(sentiment_result["sentiment"]), unsafe_allow_html=True)
-        st.text_area("Sentiment", value=sentiment_display, height=150)
-    with col2:
-        st.text_area("Summary", value=summary_result, height=150)
+        sentiment_display = f"Sentiment: {sentiment_result['sentiment']}\nReason: {sentiment_result['reason']}"
 
-    combined = f"--- SENTIMENT ---\n{sentiment_display}\n\n--- SUMMARY ---\n{summary_result}"
-    st.download_button("Download Full Results", data=combined, file_name="full_analysis_result.txt")
+        col1, col2 = st.columns(2)
+        with col1:
+            with st.container(border=True):
+                st.markdown(sentiment_badge_html(sentiment_result["sentiment"]), unsafe_allow_html=True)
+                st.text_area("Sentiment", value=sentiment_display, height=150, label_visibility="collapsed")
+        with col2:
+            with st.container(border=True):
+                st.markdown("**Summary**")
+                st.text_area("Summary", value=summary_result, height=150, label_visibility="collapsed")
+
+        combined = f"--- SENTIMENT ---\n{sentiment_display}\n\n--- SUMMARY ---\n{summary_result}"
+        st.download_button("Download Full Results", data=combined, file_name="full_analysis_result.txt")

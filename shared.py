@@ -347,6 +347,15 @@ def word_and_reading_stats(text):
     return f"{word_count} words · ~{reading_minutes} min read"
 
 
+def word_reading_counts(text):
+    """Returns (word_count, reading_minutes) as raw numbers, for rendering as stat pills."""
+    if not text.strip():
+        return 0, 0
+    word_count = len(text.split())
+    reading_minutes = max(1, round(word_count / 200))
+    return word_count, reading_minutes
+
+
 def load_uploaded_file(uploaded_file):
     if uploaded_file is None:
         return ""
