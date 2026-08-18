@@ -97,7 +97,7 @@ for i, card in enumerate(cards):
             """,
             unsafe_allow_html=True,
         )
-        st.page_link(pages[card["page_key"]], label=f"Open {card['title']}", icon="→")
+        st.page_link(pages[card["page_key"]], label=f"Open {card['title']}", icon="➡️")
 
 st.markdown("---")
 st.caption("Built with Streamlit, OpenRouter, and the YouTube Data API")
