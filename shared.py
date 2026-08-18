@@ -25,8 +25,6 @@ YOUTUBE_API_KEY = st.secrets.get("YOUTUBE_API_KEY", os.getenv("YOUTUBE_API_KEY",
 # Fast, cost-effective models offered for comment sentiment + summary generation
 SENTIMENT_MODELS = {
     "GPT-4o Mini": "openai/gpt-4o-mini",
-    "Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
-    "DeepSeek R1": "deepseek/deepseek-r1",
 }
 
 # ---------------------------------------------------------------------------
