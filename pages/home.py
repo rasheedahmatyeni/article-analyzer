@@ -1,11 +1,13 @@
 import streamlit as st
 from shared import (
-    inject_global_styles, accent_bar, INDIGO, AMBER, INK,
+    inject_global_styles, accent_bar, get_pages, INDIGO, AMBER, INK,
     OPENROUTER_API_KEY, YOUTUBE_API_KEY,
 )
 
 inject_global_styles()
 accent_bar()
+
+pages = get_pages()
 
 # --- Connection status badges ---
 def status_badge(name, connected):
@@ -52,28 +54,28 @@ cards = [
         "icon": "📝",
         "title": "Article Summarizer",
         "desc": "Paste any article and get a concise, 2-3 sentence AI summary in seconds.",
-        "page": "pages/summarize_dashboard.py",
+        "page_key": "summarize",
         "color": INDIGO,
     },
     {
         "icon": "💬",
         "title": "Sentiment Analysis Dashboard",
         "desc": "Understand the stance behind any article's writing, with automatic sensitive-topic flagging.",
-        "page": "pages/sentiment_dashboard.py",
+        "page_key": "sentiment",
         "color": "#2E7D32",
     },
     {
         "icon": "📊",
         "title": "Full Analysis Dashboard",
         "desc": "Run sentiment and summarization together, side by side, and download the combined results.",
-        "page": "pages/full_analysis_dashboard.py",
+        "page_key": "full",
         "color": AMBER,
     },
     {
         "icon": "🎬",
         "title": "YouTube Sentiment Dashboard",
         "desc": "Pull public comments from any YouTube video and see sentiment, trends over time, and an AI executive summary.",
-        "page": "pages/youtube_dashboard.py",
+        "page_key": "youtube",
         "color": "#C62828",
     },
 ]
@@ -95,7 +97,7 @@ for i, card in enumerate(cards):
             """,
             unsafe_allow_html=True,
         )
-        st.page_link(card["page"], label=f"Open {card['title']}", icon="→")
+        st.page_link(pages[card["page_key"]], label=f"Open {card['title']}", icon="→")
 
 st.markdown("---")
 st.caption("Built with Streamlit, OpenRouter, and the YouTube Data API")

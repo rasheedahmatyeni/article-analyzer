@@ -40,6 +40,22 @@ SENTIMENT_COLORS = {"Positive": "#2E7D32", "Neutral": "#5A5D6B", "Negative": "#C
 SENTIMENT_TINTS = {"Positive": "#E8F5E9", "Neutral": "#EEEEF2", "Negative": "#FDECEA"}
 
 
+def get_pages():
+    """Returns the app's Page objects, keyed by a short name.
+
+    Defined once here so app.py (for st.navigation) and pages/home.py (for st.page_link) both
+    work with actual Page objects rather than raw string paths - passing a string to st.page_link
+    from inside a page that lives in a subfolder can resolve relative to the wrong directory.
+    """
+    return {
+        "home": st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+        "summarize": st.Page("pages/summarize_dashboard.py", title="Article Summarizer", icon="📝"),
+        "sentiment": st.Page("pages/sentiment_dashboard.py", title="Sentiment Analysis Dashboard", icon="💬"),
+        "full": st.Page("pages/full_analysis_dashboard.py", title="Full Analysis Dashboard", icon="📊"),
+        "youtube": st.Page("pages/youtube_dashboard.py", title="YouTube Sentiment Dashboard", icon="🎬"),
+    }
+
+
 def inject_global_styles():
     """Injects the shared visual identity: Sora display font, indigo/amber accents, and
     consistent styling for buttons, tabs, the sidebar nav, and sentiment badges/cards."""
