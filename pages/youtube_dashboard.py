@@ -2,8 +2,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from shared import (
-    inject_global_styles, accent_bar, dashboard_intro, INK,
-    SENTIMENT_COLORS, SENTIMENT_MODELS, sentiment_card_html, stat_pill_html,
+    inject_global_styles, accent_bar, dashboard_intro, INK, DEFAULT_MODEL,
+    SENTIMENT_COLORS, sentiment_card_html, stat_pill_html,
     format_count, time_ago, extract_video_id, fetch_youtube_video_details,
     fetch_youtube_comments, classify_comments_sentiment, generate_executive_summary,
 )
@@ -19,12 +19,7 @@ dashboard_intro(
 )
 
 yt_url = st.text_input("YouTube Video URL", placeholder="https://www.youtube.com/watch?v=...", key="yt_url")
-
-col_a, col_b = st.columns([2, 1])
-with col_a:
-    model_choice = st.selectbox("Sentiment / Summary Model", list(SENTIMENT_MODELS.keys()), key="yt_model")
-with col_b:
-    max_comments = st.slider("Max comments", 10, 100, 50, step=10, key="yt_max")
+max_comments = st.slider("Max comments", 10, 100, 50, step=10, key="yt_max")
 
 
 def clear_youtube_tab():
@@ -59,11 +54,10 @@ if run_youtube:
             elif not comments:
                 st.warning("No comments found for this video — they may be disabled.")
             else:
-                model_id = SENTIMENT_MODELS[model_choice]
                 with st.spinner("Classifying comment sentiment..."):
-                    comments = classify_comments_sentiment(comments, model_id)
+                    comments = classify_comments_sentiment(comments, DEFAULT_MODEL)
                 with st.spinner("Generating executive summary..."):
-                    summary = generate_executive_summary(comments, model_id)
+                    summary = generate_executive_summary(comments, DEFAULT_MODEL)
 
                 st.session_state.yt_video = video_details
                 st.session_state.yt_comments = comments

@@ -5,5 +5,5 @@ st.set_page_config(page_title="Article Analyzer", page_icon="📰", layout="wide
 inject_global_styles()
 
 pages = get_pages()
-pg = st.navigation([pages["home"], pages["summarize"], pages["sentiment"], pages["full"], pages["youtube"]])
+pg = st.navigation([pages["home"], pages["full"], pages["youtube"]])
 pg.run()

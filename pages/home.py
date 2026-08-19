@@ -51,25 +51,11 @@ st.subheader("Choose a dashboard")
 # --- Dashboard cards ---
 cards = [
     {
-        "icon": "📝",
-        "title": "Article Summarizer",
-        "desc": "Paste any article and get a concise, 2-3 sentence AI summary in seconds.",
-        "page_key": "summarize",
-        "color": INDIGO,
-    },
-    {
-        "icon": "💬",
-        "title": "Sentiment Analysis Dashboard",
-        "desc": "Understand the stance behind any article's writing, with automatic sensitive-topic flagging.",
-        "page_key": "sentiment",
-        "color": "#2E7D32",
-    },
-    {
         "icon": "📊",
         "title": "Full Analysis Dashboard",
-        "desc": "Run sentiment and summarization together, side by side, and download the combined results.",
+        "desc": "Paste any article and get sentiment, a summary, and a sentence-by-sentence sentiment breakdown with charts - all in one pass.",
         "page_key": "full",
-        "color": AMBER,
+        "color": INDIGO,
     },
     {
         "icon": "🎬",

@@ -22,10 +22,14 @@ from docx import Document
 OPENROUTER_API_KEY = st.secrets.get("OPENROUTER_API_KEY", os.getenv("OPENROUTER_API_KEY", ""))
 YOUTUBE_API_KEY = st.secrets.get("YOUTUBE_API_KEY", os.getenv("YOUTUBE_API_KEY", ""))
 
-# Fast, cost-effective models offered for comment sentiment + summary generation
+# Model used for comment/sentence sentiment classification and summaries. Claude 3.5 Haiku and
+# DeepSeek R1 were previously offered as options here, but both are paid, credit-based models on
+# OpenRouter - once the account balance ran out they returned 404s and crashed the live demo.
+# Standardized on GPT-4o Mini since it runs without requiring a funded balance.
 SENTIMENT_MODELS = {
     "GPT-4o Mini": "openai/gpt-4o-mini",
 }
+DEFAULT_MODEL = "openai/gpt-4o-mini"
 
 # ---------------------------------------------------------------------------
 # Color tokens
@@ -47,8 +51,6 @@ def get_pages():
     """
     return {
         "home": st.Page("pages/home.py", title="Home", icon="🏠", default=True),
-        "summarize": st.Page("pages/summarize_dashboard.py", title="Article Summarizer", icon="📝"),
-        "sentiment": st.Page("pages/sentiment_dashboard.py", title="Sentiment Analysis Dashboard", icon="💬"),
         "full": st.Page("pages/full_analysis_dashboard.py", title="Full Analysis Dashboard", icon="📊"),
         "youtube": st.Page("pages/youtube_dashboard.py", title="YouTube Sentiment Dashboard", icon="🎬"),
     }
@@ -351,6 +353,17 @@ def full_analysis(text):
     if not text.strip():
         return {"sentiment": "", "reason": "Please enter some text to analyze.", "sensitive": False}, ""
     return analyze_sentiment(text), summarize_with_llm(text)
+
+
+def split_into_sentences(text, max_sentences=80):
+    """Rough sentence splitter for the Full Analysis dashboard's sentence-level sentiment
+    breakdown. Not perfect NLP segmentation, but good enough to give a meaningful distribution
+    of sentiment across a single article rather than just one overall label."""
+    if not text.strip():
+        return []
+    raw = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences = [s.strip() for s in raw if len(s.strip()) > 3]
+    return sentences[:max_sentences]
 
 
 def word_and_reading_stats(text):
