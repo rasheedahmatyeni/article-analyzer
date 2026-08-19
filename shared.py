@@ -336,7 +336,7 @@ def summarize_with_llm(text):
 
     with OpenRouter(api_key=OPENROUTER_API_KEY) as client:
         response = client.chat.send(
-            model="openrouter/free",
+            model=DEFAULT_MODEL,
             messages=[
                 {
                     "role": "system",

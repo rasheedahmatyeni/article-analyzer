@@ -110,11 +110,11 @@ if st.session_state.get("full_sentiment_result"):
         with st.container(border=True):
             st.markdown("**Overall Sentiment**")
             st.markdown(sentiment_badge_html(sentiment_result["sentiment"]), unsafe_allow_html=True)
-            st.text_area("Sentiment", value=sentiment_display, height=120, label_visibility="collapsed")
+            st.text_area("Sentiment", value=sentiment_display, height=120, label_visibility="collapsed", disabled=True)
     with col2:
         with st.container(border=True):
             st.markdown("**Summary**")
-            st.text_area("Summary", value=summary_result, height=120, label_visibility="collapsed")
+            st.text_area("Summary", value=summary_result, height=120, label_visibility="collapsed", disabled=True)
 
     combined = f"--- SENTIMENT ---\n{sentiment_display}\n\n--- SUMMARY ---\n{summary_result}"
     st.download_button("Download Sentiment + Summary", data=combined, file_name="full_analysis_result.txt")
