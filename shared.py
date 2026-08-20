@@ -123,6 +123,15 @@ def inject_global_styles():
             color: {INDIGO} !important;
         }}
 
+        /* Read-only result boxes (disabled=True) should stay fully readable, not faded out */
+        .stTextArea textarea:disabled {{
+            -webkit-text-fill-color: {INK} !important;
+            color: {INK} !important;
+            opacity: 1 !important;
+            background-color: #F7F7FB !important;
+            cursor: default;
+        }}
+
         .sentiment-badge {{
             display: inline-block;
             padding: 4px 14px;
@@ -145,6 +154,16 @@ def inject_global_styles():
         .stat-pill {{
             border-radius: 10px;
             padding: 10px 14px;
+        }}
+
+        /* Read-only result boxes (disabled text areas) should stay fully legible - not
+           washed out the way browsers style disabled inputs by default. */
+        [data-testid="stTextArea"] textarea:disabled {{
+            opacity: 1 !important;
+            -webkit-text-fill-color: {INK} !important;
+            color: {INK} !important;
+            background-color: #F7F7FB !important;
+            cursor: text !important;
         }}
         </style>
     """, unsafe_allow_html=True)
